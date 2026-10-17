@@ -1,12 +1,13 @@
 """
 DeepSeek Scout MCP Server
 将 DeepSeek 的 /v1/tools/search 和 /v1/tools/fetch 封装为 MCP 工具。
-API Key 由每个调用者在调用时通过 api_key 参数传入，服务端不保存 Key。
+API Key 由调用方通过 HTTP 请求头 Authorization: Bearer <key> 传入，服务端不保存 Key。
 """
 
 import os
 import httpx
 from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_http_headers
 from typing import Optional, Any
 
 mcp = FastMCP(name="DeepSeek Scout")
@@ -14,12 +15,29 @@ mcp = FastMCP(name="DeepSeek Scout")
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
 
+def _resolve_api_key() -> str:
+    """从当前 HTTP 请求头中读取 DeepSeek API Key。
+
+    优先取 Authorization: Bearer <key>，其次取 X-DeepSeek-Api-Key: <key>。
+    非 HTTP transport（如 stdio）下没有请求头，会抛 ValueError。
+    """
+    headers = get_http_headers(include={"authorization"})
+    key = headers.get("authorization", "").strip()
+    if key.lower().startswith("bearer "):
+        key = key[7:].strip()
+    if not key:
+        key = headers.get("x-deepseek-api-key", "").strip()
+    if not key:
+        raise ValueError(
+            "请求头中缺少 API Key，请通过 Authorization: Bearer <key> 传入"
+        )
+    return key
+
+
 def _build_headers(api_key: str) -> dict[str, str]:
-    """校验并构造请求头。"""
-    if not api_key or not api_key.strip():
-        raise ValueError("api_key 不能为空，请填写你自己的 DeepSeek API Key")
+    """构造请求 DeepSeek API 的请求头。"""
     return {
-        "Authorization": f"Bearer {api_key.strip()}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
 
@@ -29,12 +47,12 @@ def _build_headers(api_key: str) -> dict[str, str]:
     description=(
         "使用 DeepSeek 搜索引擎搜索网页，返回结构化结果列表。"
         "支持 site:、-site:、引号等搜索语法。"
-        "调用时必须传入 api_key（调用者自己的 DeepSeek API Key），服务端不保存 Key。"
+        "API Key 通过 HTTP 请求头 Authorization: Bearer <key> 传入（服务端不保存 Key），"
+        "无需也不能在工具参数中提供。"
     ),
 )
 async def deepseek_search(
     query: str,
-    api_key: str,
     count: int = 10,
     ori_question: Optional[str] = None,
     localization: str = "",
@@ -45,16 +63,16 @@ async def deepseek_search(
 
     Args:
         query: 搜索词，1~128 个 Unicode 字符，不能全为空白。支持 site:、-site:、引号等语法。
-        api_key: 调用者自己的 DeepSeek API Key（必填），仅用于本次请求，服务端不存储。
         count: 返回条数，1~50，默认 10。
         ori_question: 触发搜索的用户原始问题，1~128 字符，有助于理解搜索意图。
         localization: 用于优先返回本地化搜索结果的 IP 地址，默认为空字符串。
         need_content: 是否在 content 中返回网页正文，默认为 false。
     """
     try:
-        headers = _build_headers(api_key)
+        api_key = _resolve_api_key()
     except ValueError as e:
-        return {"error": "Invalid api_key", "detail": str(e)}
+        return {"error": "Missing API key header", "detail": str(e)}
+    headers = _build_headers(api_key)
 
     payload = {
         "query": query,
@@ -86,16 +104,16 @@ async def deepseek_search(
     name="deepseek_fetch",
     description=(
         "抓取单个网页，以 Markdown 格式返回页面内容。"
-        "调用时必须传入 api_key（调用者自己的 DeepSeek API Key），服务端不保存 Key。"
+        "API Key 通过 HTTP 请求头 Authorization: Bearer <key> 传入（服务端不保存 Key），"
+        "无需也不能在工具参数中提供。"
     ),
 )
-async def deepseek_fetch(url: str, api_key: str) -> dict[str, Any]:
+async def deepseek_fetch(url: str) -> dict[str, Any]:
     """
     抓取网页，返回页面标题与 Markdown 格式的内容。
 
     Args:
         url: 要抓取的网页地址，必须为含 host 的 HTTP/HTTPS URL，长度不超过 8192。
-        api_key: 调用者自己的 DeepSeek API Key（必填），仅用于本次请求，服务端不存储。
     """
     if not url.startswith(("http://", "https://")):
         return {
@@ -104,9 +122,10 @@ async def deepseek_fetch(url: str, api_key: str) -> dict[str, Any]:
         }
 
     try:
-        headers = _build_headers(api_key)
+        api_key = _resolve_api_key()
     except ValueError as e:
-        return {"error": "Invalid api_key", "detail": str(e)}
+        return {"error": "Missing API key header", "detail": str(e)}
+    headers = _build_headers(api_key)
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
