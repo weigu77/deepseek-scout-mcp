@@ -13,6 +13,7 @@ FastMCP 服务器，封装 DeepSeek 的 Search 与 Fetch 能力。
         "deepseek-scout-mcp@latest"
       ],
       "env": {
+        "MCP_TRANSPORT": "stdio",
         "DEEPSEEK_API_KEY": "<YOUR_DEEPSEEK_API_KEY>"
       }
     }
@@ -54,13 +55,11 @@ Authorization: Bearer <你的 DeepSeek API Key>
 
 ## 本地运行
 
-默认以 `streamable-http` 启动，监听 `HOST`/`PORT`（默认 `0.0.0.0:8000`）；设置 `MCP_TRANSPORT=stdio` 切换为 STDIO。
+未设置 `MCP_TRANSPORT` 时：检测到 `PORT` 环境变量就以 `streamable-http` 启动（监听 `HOST`/`PORT`，默认 `0.0.0.0:8000`），否则以 `stdio` 启动。需要固定某种方式可显式设置 `MCP_TRANSPORT=stdio` 或 `MCP_TRANSPORT=streamable-http`。
 
 ```bash
 pip install -e .
 python -m deepseek_scout_mcp
-
-MCP_TRANSPORT=stdio python -m deepseek_scout_mcp
 # 或
 uvx deepseek-scout-mcp
 ```

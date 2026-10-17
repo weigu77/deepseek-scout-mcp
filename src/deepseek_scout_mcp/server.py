@@ -152,8 +152,14 @@ async def deepseek_fetch(url: str) -> dict[str, Any]:
 
 
 def run():
-    """入口：按 MCP_TRANSPORT 启动，默认 streamable-http（监听 HOST/PORT），可切换 stdio。"""
-    transport = os.environ.get("MCP_TRANSPORT", "streamable-http")
+    """入口：按 MCP_TRANSPORT 启动。
+
+    未显式设置 MCP_TRANSPORT 时，检测到平台注入的 PORT 就用 streamable-http，
+    否则用 stdio —— 保证裸 `uvx deepseek-scout-mcp` 在托管平台的 list_tools 检测下可用。
+    """
+    transport = os.environ.get("MCP_TRANSPORT")
+    if transport is None:
+        transport = "streamable-http" if os.environ.get("PORT") else "stdio"
     if transport == "stdio":
         mcp.run(transport="stdio")
     else:
