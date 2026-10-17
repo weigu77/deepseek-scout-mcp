@@ -16,10 +16,11 @@ DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
 
 def _resolve_api_key() -> str:
-    """从当前 HTTP 请求头中读取 DeepSeek API Key。
+    """解析 DeepSeek API Key。
 
-    优先取 Authorization: Bearer <key>，其次取 X-DeepSeek-Api-Key: <key>。
-    非 HTTP transport（如 stdio）下没有请求头，会抛 ValueError。
+    优先从当前 HTTP 请求头读取（Authorization: Bearer <key>，备选 X-DeepSeek-Api-Key），
+    其次读取环境变量 DEEPSEEK_API_KEY —— STDIO 托管部署下没有请求头，走这条路径。
+    两者都没有时抛 ValueError。
     """
     headers = get_http_headers(include={"authorization"})
     key = headers.get("authorization", "").strip()
@@ -28,8 +29,11 @@ def _resolve_api_key() -> str:
     if not key:
         key = headers.get("x-deepseek-api-key", "").strip()
     if not key:
+        key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    if not key:
         raise ValueError(
-            "请求头中缺少 API Key，请通过 Authorization: Bearer <key> 传入"
+            "缺少 API Key：请通过请求头 Authorization: Bearer <key> 传入，"
+            "或设置环境变量 DEEPSEEK_API_KEY"
         )
     return key
 
@@ -47,8 +51,9 @@ def _build_headers(api_key: str) -> dict[str, str]:
     description=(
         "使用 DeepSeek 搜索引擎搜索网页，返回结构化结果列表。"
         "支持 site:、-site:、引号等搜索语法。"
-        "API Key 通过 HTTP 请求头 Authorization: Bearer <key> 传入（服务端不保存 Key），"
-        "无需也不能在工具参数中提供。"
+        "API Key 由调用方通过 HTTP 请求头 Authorization: Bearer <key> 传入"
+        "（托管 STDIO 部署下由服务端环境变量 DEEPSEEK_API_KEY 提供），"
+        "服务端不保存 Key，无需也不能在工具参数中提供。"
     ),
 )
 async def deepseek_search(
@@ -104,8 +109,9 @@ async def deepseek_search(
     name="deepseek_fetch",
     description=(
         "抓取单个网页，以 Markdown 格式返回页面内容。"
-        "API Key 通过 HTTP 请求头 Authorization: Bearer <key> 传入（服务端不保存 Key），"
-        "无需也不能在工具参数中提供。"
+        "API Key 由调用方通过 HTTP 请求头 Authorization: Bearer <key> 传入"
+        "（托管 STDIO 部署下由服务端环境变量 DEEPSEEK_API_KEY 提供），"
+        "服务端不保存 Key，无需也不能在工具参数中提供。"
     ),
 )
 async def deepseek_fetch(url: str) -> dict[str, Any]:
@@ -146,7 +152,11 @@ async def deepseek_fetch(url: str) -> dict[str, Any]:
 
 
 def run():
-    """托管平台入口：以 streamable-http 启动，监听平台注入的 PORT。"""
-    host = os.environ.get("HOST", "0.0.0.0")
-    port = int(os.environ.get("PORT", "8000"))
-    mcp.run(transport="streamable-http", host=host, port=port)
+    """入口：按 MCP_TRANSPORT 启动，默认 streamable-http（监听 HOST/PORT），可切换 stdio。"""
+    transport = os.environ.get("MCP_TRANSPORT", "streamable-http")
+    if transport == "stdio":
+        mcp.run(transport="stdio")
+    else:
+        host = os.environ.get("HOST", "0.0.0.0")
+        port = int(os.environ.get("PORT", "8000"))
+        mcp.run(transport="streamable-http", host=host, port=port)

@@ -1,6 +1,6 @@
 [project]
 name = "deepseek-scout-mcp"
-version = "0.1.2"
+version = "0.1.3"
 description = "FastMCP server wrapping DeepSeek's Search and Fetch APIs"
 readme = "README.md"
 authors = [
