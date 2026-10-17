@@ -1,6 +1,6 @@
 [project]
 name = "deepseek-scout-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "FastMCP server wrapping DeepSeek's Search and Fetch APIs"
 readme = "README.md"
 authors = [
@@ -11,6 +11,11 @@ dependencies = [
     "fastmcp>=4.1.0",
     "httpx>=0.28.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/weigu77/deepseek-scout-mcp"
+Repository = "https://github.com/weigu77/deepseek-scout-mcp"
+Issues = "https://github.com/weigu77/deepseek-scout-mcp/issues"
 
 [project.scripts]
 deepseek-scout-mcp = "deepseek_scout_mcp:run"
