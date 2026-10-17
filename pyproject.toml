@@ -1,7 +1,7 @@
 [project]
 name = "deepseek-scout-mcp"
 version = "0.1.0"
-description = "Add your description here"
+description = "FastMCP server wrapping DeepSeek's Search and Fetch APIs"
 readme = "README.md"
 authors = [
     { name = "weigu77", email = "3444567034@qq.com" }
