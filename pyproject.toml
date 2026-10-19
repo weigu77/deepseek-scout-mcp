@@ -6,6 +6,8 @@ readme = "README.md"
 authors = [
     { name = "weigu77", email = "3444567034@qq.com" }
 ]
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=4.1.0",
