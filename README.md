@@ -7,9 +7,14 @@
 
 把 [DeepSeek 的网页搜索与网页抓取接口](https://api-docs.deepseek.com/zh-cn/guides/search) 封装成 MCP 工具，让任何支持 MCP 的客户端（Claude Desktop、Cursor、魔搭社区等）直接获得**联网搜索**与**网页抓取**能力。
 
-- 以 **stdio** 方式运行，进程由客户端拉起，不占端口
-- API Key 通过环境变量 `DEEPSEEK_API_KEY` 注入，不写进代码，也不经过工具参数
-- 两个工具直连 DeepSeek，无中间状态、无缓存；Search 与 Fetch 均为只读请求
+底层是 DeepSeek 自研搜索引擎 —— 长期为 DeepSeek 网页端与 API 端提供搜索能力，每天稳定处理全球数亿次搜索请求。
+
+**为什么值得用**
+
+- **覆盖广**：AI 原生通用搜索引擎，索引全球千亿级网页，支持多语言搜索
+- **质量高**：实时返回高相关、高权威、高时效的结果；每条结果自带 `rerank_score`（0～3）、`authority`（0～4）和发布时间，便于二次筛选
+- **抗污染**：对 SEO 作弊、GEO 操纵与低质 AIGC 有专门的识别过滤机制，更倾向权威可信来源
+- **接入成本低**：以 stdio 方式运行，进程由客户端拉起、不占端口；API Key 走环境变量 `DEEPSEEK_API_KEY`，不写进代码；两个工具直连 DeepSeek，无中间状态与缓存，Search 与 Fetch 均为只读请求
 
 ## 服务配置
 
@@ -154,6 +159,42 @@ uvx deepseek-scout-mcp
 ```bash
 DEEPSEEK_API_KEY=sk-xxxx uvx deepseek-scout-mcp
 ```
+
+## 已知问题
+
+### 走魔搭托管地址 + fastmcp 系客户端时报 `handshake protocol era`
+
+现象：
+
+```text
+mcp.shared.exceptions.MCPError: this connection serves the handshake protocol era;
+requests carrying the 2026-07-28 envelope are not accepted on it
+```
+
+原因：这条错误由**魔搭网关**返回，与本包无关（本包代码里没有这段字符串）。魔搭托管地址 `https://mcp.api-inference.modelscope.net/<id>/mcp` 只服务握手时代协议（`2025-06-18`），而 fastmcp 的客户端默认 `mode="auto"`，连接时会先探测 `server/discover` 并切到 `2026-07-28` 协议，之后每个请求都被网关拒绝。
+
+影响范围：
+
+- **本地 stdio 方式（本 README 推荐的配置）不受影响** —— 不经过任何网关
+- 只讲握手时代协议的客户端（Claude Desktop、Cursor 等）也不受影响
+- 会中招的是**代码里**用了 fastmcp 系客户端、又没有指定协议模式的情况，典型是 LangChain 的 `MCPAdapter`
+
+绕过方法：显式用 `mode="legacy"` 预构建客户端，再交给 `MCPAdapter`：
+
+```python
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
+from langchain.mcp import MCPAdapter
+
+client = Client(
+    StreamableHttpTransport("https://mcp.api-inference.modelscope.net/<id>/mcp"),
+    mode="legacy",
+)
+async with MCPAdapter(target=client) as adapter:
+    tools = await adapter.list_tools()
+```
+
+该规避属于客户端侧设置，**没法写进 MCP 客户端的 JSON 配置**，只能在代码里改；若魔搭网关后续支持新版协议，此问题会自动消失。
 
 ## 相关链接
 
