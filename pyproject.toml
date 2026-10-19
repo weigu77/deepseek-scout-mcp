@@ -1,6 +1,6 @@
 [project]
 name = "deepseek-scout-mcp"
-version = "0.1.4"
+version = "0.1.5"
 description = "FastMCP server wrapping DeepSeek's Search and Fetch APIs"
 readme = "README.md"
 authors = [
@@ -9,7 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=4.1.0",
-    "httpx>=0.28.1",
+    "requests>=2.31.0",
 ]
 
 [project.urls]

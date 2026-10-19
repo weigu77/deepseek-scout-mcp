@@ -1,8 +1,8 @@
 # DeepSeek Scout MCP
 
-FastMCP 服务器，封装 DeepSeek 的 Search 与 Fetch 能力。
+FastMCP 服务器，封装 DeepSeek 的 Search 与 Fetch 能力，以 stdio 方式本地运行。
 
-## 服务配置（STDIO · 平台托管部署）
+## 服务配置
 
 ```json
 {
@@ -13,7 +13,6 @@ FastMCP 服务器，封装 DeepSeek 的 Search 与 Fetch 能力。
         "deepseek-scout-mcp@latest"
       ],
       "env": {
-        "MCP_TRANSPORT": "stdio",
         "DEEPSEEK_API_KEY": "<YOUR_DEEPSEEK_API_KEY>"
       }
     }
@@ -21,41 +20,14 @@ FastMCP 服务器，封装 DeepSeek 的 Search 与 Fetch 能力。
 }
 ```
 
-## API Key 传递方式
-
-- **STDIO 托管部署**：平台读取上面配置的 `env.DEEPSEEK_API_KEY` 注入环境变量，服务端从中读取。
-- **Streamable HTTP**：调用方通过请求头传入，服务端不保存、不需要配置 Key。
-
-```
-Authorization: Bearer <你的 DeepSeek API Key>
-```
-
-备选：`X-DeepSeek-Api-Key: <key>`。工具参数中**没有** `api_key`；请求头与环境变量都没有时返回 `Missing API key header`。
-
-优先级：请求头 > 环境变量 `DEEPSEEK_API_KEY`。
+API Key 通过环境变量 `DEEPSEEK_API_KEY` 提供，工具参数中没有 `api_key`。
 
 ## 工具
 
 - `deepseek_search(query, count=10, ori_question=None, localization="", need_content=False)`
 - `deepseek_fetch(url)`
 
-## HTTP 客户端配置示例
-
-```json
-{
-  "mcpServers": {
-    "deepseek-scout": {
-      "type": "http",
-      "url": "http://localhost:8000/mcp",
-      "headers": { "Authorization": "Bearer sk-你的Key" }
-    }
-  }
-}
-```
-
 ## 本地运行
-
-未设置 `MCP_TRANSPORT` 时：检测到 `PORT` 环境变量就以 `streamable-http` 启动（监听 `HOST`/`PORT`，默认 `0.0.0.0:8000`），否则以 `stdio` 启动。需要固定某种方式可显式设置 `MCP_TRANSPORT=stdio` 或 `MCP_TRANSPORT=streamable-http`。
 
 ```bash
 pip install -e .
@@ -63,3 +35,5 @@ python -m deepseek_scout_mcp
 # 或
 uvx deepseek-scout-mcp
 ```
+
+以 stdio 方式启动，由 MCP 客户端通过上面的配置拉起进程。
